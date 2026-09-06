@@ -1,0 +1,185 @@
+// EFDI-Edge — router-side Zenoh config TEMPLATE.
+//
+// Rendered by install.sh via `envsubst` into ${POD_STATE_DIR}/zenoh/config.json5,
+// right after scripts/pki/enroll-router.sh provisions this router's identity.
+// Ported from the parent EFDI project's examples/zenoh-router.json5.tmpl —
+// same ACL/federation model, same placeholder names.
+//
+// Placeholders (all supplied by install.sh from compose/.env + the enrolled
+// certs under ${POD_STATE_DIR}/zenoh/tls/):
+//   ${ZENOH_LISTEN_PORT}      mTLS listen port for mesh-facing pod-side clients (audit-sink, peers)
+//   ${ZENOH_LOCAL_TCP_PORT}   plaintext TCP listen port for local-only clients (bridges, zenoh-admin GUI)
+//   ${ZENOH_CONNECT_ENDPOINTS} JSON list containing the explicitly configured remote endpoints
+//                              this pod dials OUT, or [] when this pod is the fabric root
+//   ${PARTNER_NAMESPACE}      the pod's first-party write/read prefix (its slot, or release/<partner>)
+//   ${INBOUND_NAMESPACE}      the bilateral prefix the fabric publishes TO the pod (compose/.env-driven)
+//   ${NAMESPACE_PREFIX}       deployment prefix (variable depth); pod writes under ${NAMESPACE_PREFIX}/${PARTNER_NAMESPACE}
+//   ${NAMESPACE_ROOT}         first segment of the prefix; scopes mesh-wide federation/topology wildcards
+//   ${DATA_TOPIC_ROOT}        runtime data publish root; may be the slot itself on the EFDI sandbox
+//   ${LISTEN_CERT_PEM}        selected local listener certificate
+//   ${LISTEN_KEY_PEM}         selected local listener key
+//   ${CONNECT_CERT_PEM}       selected outbound connector certificate
+//   ${CONNECT_KEY_PEM}        selected outbound connector key
+//   ${CA_ROOTS_PEM}           selected fabric trust roots
+//   ${ZENOH_VERIFY_NAME_ON_CONNECT}    true/false — verify the fabric endpoint's cert SAN against
+//                                       the DNS name dialed (default false: gateway cert SAN binds
+//                                       the mesh IP, not the DNS name)
+//   ${ZENOH_PLUGINS_LOADING_ENABLED}   true/false — whether the storage_manager plugin loads at all
+{
+  mode: "router",
+
+  // Local listen: mTLS for mesh-facing pod-side clients (audit-sink, peers), plaintext TCP
+  // for local-only clients (bridges, zenoh-admin GUI) — matches the "local-tcp" ACL subject below.
+  // The plaintext port binds loopback ONLY: local-tcp's ACL subject grants full
+  // pod-firstparty/pod-inbound/pod-admin-introspect/pod-federation-config trust to
+  // ANY tcp connection with no cert/credential check, so this port must never be
+  // reachable off-box — every local-tcp client is itself a container on this same
+  // host (network_mode: host shares the loopback across all of them).
+  listen: {
+    endpoints: ["tls/0.0.0.0:${ZENOH_LISTEN_PORT}", "tcp/127.0.0.1:${ZENOH_LOCAL_TCP_PORT}"],
+  },
+
+  // Dial OUT to the remote fabric endpoint (a peer router, or nothing yet on an isolated pod).
+  connect: {
+    endpoints: ${ZENOH_CONNECT_ENDPOINTS},
+  },
+
+  transport: {
+    link: {
+      tls: {
+        // Pod identity for BOTH directions: as a listener (local clients verify us) and as a
+        // connector (the remote peer verifies us). CA roots are EFDI's own root, never compiled in.
+        listen_certificate: "${LISTEN_CERT_PEM}",
+        listen_private_key: "${LISTEN_KEY_PEM}",
+        connect_certificate: "${CONNECT_CERT_PEM}",
+        connect_private_key: "${CONNECT_KEY_PEM}",
+        root_ca_certificate: "${CA_ROOTS_PEM}",
+        enable_mtls: true,
+        // Router/gateway cert SAN binds the mesh IP, not the DNS name we dial — match the
+        // audit-subscriber + the sandbox router posture.
+        verify_name_on_connect: ${ZENOH_VERIFY_NAME_ON_CONNECT},
+        // Drop expired client certificates instead of leaving a stale mTLS
+        // session alive until its next transport failure.
+        close_link_on_expiration: true,
+      },
+    },
+  },
+
+  plugins_loading: {
+    enabled: ${ZENOH_PLUGINS_LOADING_ENABLED},
+    search_dirs: ["/", "/lib", "/opt/zenoh/plugins"],
+  },
+
+  // In-memory storage — new subscribers get last-known value per topic immediately via get().
+  plugins: {
+    storage_manager: {
+      storages: {
+        efdi_live: {
+          // Runtime data root is configurable independently from the federation prefix.
+          key_expr: "${DATA_TOPIC_ROOT}/**",
+          volume: { id: "memory" },
+        },
+      },
+    },
+  },
+
+  // Pod-side ACL: default-deny, mTLS-gated. The pod is the partner's own single-tenant box, so
+  // this is the partner's own boundary — enforced locally, default-deny as good hygiene.
+  access_control: {
+    enabled: true,
+    default_permission: "deny",
+    rules: [
+      {
+        // The pod's own first-party data: publish + subscribe within its namespace, both flows.
+        id: "pod-firstparty",
+        messages: ["put", "delete", "declare_subscriber", "query", "declare_queryable", "reply"],
+        flows: ["egress", "ingress"],
+        permission: "allow",
+        // Runtime data root is configurable independently from the federation prefix.
+        key_exprs: ["${DATA_TOPIC_ROOT}/**"],
+      },
+      {
+        // Inbound bilateral data from the fabric: subscribe/deliver only (no pod writes here).
+        // Prefix is compose/.env-driven (${INBOUND_NAMESPACE}), never hardcoded to a stack.
+        id: "pod-inbound",
+        messages: ["declare_subscriber", "query", "put", "reply"],
+        flows: ["egress", "ingress"],
+        permission: "allow",
+        key_exprs: ["${INBOUND_NAMESPACE}/**"],
+      },
+      {
+        // Admin-space introspection: read-only (query/reply), no put/delete/subscribe —
+        // lets a local mTLS client (e.g. the Zenoh admin GUI) read the router's own
+        // session/transport info via `get("@/**")`. Never grants write access to @/**.
+        id: "pod-admin-introspect",
+        messages: ["query", "reply"],
+        flows: ["egress", "ingress"],
+        permission: "allow",
+        key_exprs: ["@/**"],
+      },
+      {
+        // Router federation (config push/pull + hop-by-hop relay + status
+        // reporting + topology autodiscovery) rides @config/v1 +
+        // @config/relay/v1 + @config/status/v1 + @topology
+        // under EVERY pod's namespace, mesh-wide — a deliberate wildcard
+        // covering all descendants, not just direct children. Reason:
+        // federation trees run thousands of routers deep
+        // (HQ -> child -> grandchild -> ...), and a push has to reach any
+        // descendant regardless of hop count. Scoping this ACL to only
+        // directly-registered children (an earlier, narrower version of this
+        // rule) breaks exactly that: an intermediate hop with no ACL
+        // awareness of a namespace two levels below it silently drops the
+        // relay — confirmed by live testing. Enumerating every descendant in
+        // every intermediate's ACL doesn't scale either (one new leaf router
+        // would mean rewriting + restarting every router on its path to HQ).
+        // The `@` prefix already excludes this traffic from pod-firstparty's
+        // ${NAMESPACE_PREFIX}/${PARTNER_NAMESPACE}/** coverage (Zenoh doesn't match
+        // wildcards across '@'-prefixed chunks — the same reason
+        // pod-admin-introspect above needs its own rule for @/**) and from
+        // the efdi_live storage plugin's retention (deliberate: config
+        // payloads shouldn't be persisted as regular mesh data). This rule
+        // only restores TRANSPORT reachability for that sub-tree — it does
+        // not grant authority to apply anything: the receiving pod's
+        // federation_apply.py independently verifies every envelope's
+        // signature against its configured immediate parent
+        // (ZENOH_ADMIN_TRUSTED_PARENT_CERT_PATH/_CN) before acting on it;
+        // deeper authority is re-signed by each registered parent hop,
+        // exactly like pod-firstparty already relies on payload-level trust
+        // rather than ACL identity for everything else it covers. Every
+        // participant able to reach this rule at all is already an mTLS peer
+        // holding a cert issued by our own root CA (see the mtls-peer
+        // subject below) or a same-host local-tcp client — a mesh-wide
+        // relay-only wildcard here does not let an untrusted party touch
+        // anything.
+        //
+        // put + declare_subscriber only — the feature is pure pub/sub
+        // (federation_apply.py subscribes + puts, federation.py puts,
+        // federation_status.py subscribes); it never uses Zenoh's
+        // query/queryable/reply primitives, so granting those verbs on a
+        // rule that ships to every pod's router would be a gratuitous
+        // least-privilege violation.
+        id: "pod-federation-config",
+        messages: ["put", "declare_subscriber"],
+        flows: ["egress", "ingress"],
+        permission: "allow",
+        key_exprs: ["${NAMESPACE_ROOT}/**/@config/v1", "${NAMESPACE_ROOT}/**/@config/relay/v1", "${NAMESPACE_ROOT}/**/@config/status/v1", "${NAMESPACE_ROOT}/**/@topology"],
+      },
+    ],
+    subjects: [
+      {
+        // Any mTLS peer rooted in the EFDI root CA (pod-local clients + remote fabric peers).
+        id: "mtls-peer",
+        link_protocols: ["tls"],
+      },
+      {
+        // Local plaintext TCP clients (bridges + local tooling on the pod's own host).
+        id: "local-tcp",
+        link_protocols: ["tcp"],
+      },
+    ],
+    policies: [
+      { rules: ["pod-firstparty", "pod-inbound", "pod-admin-introspect", "pod-federation-config"], subjects: ["mtls-peer"] },
+      { rules: ["pod-firstparty", "pod-inbound", "pod-admin-introspect", "pod-federation-config"], subjects: ["local-tcp"] },
+    ],
+  },
+}

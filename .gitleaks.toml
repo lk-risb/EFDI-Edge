@@ -1,0 +1,16 @@
+title = "EFDI-Edge gitleaks config"
+
+# Use gitleaks' maintained default ruleset as the base — no reason to
+# hand-roll secret patterns when a well-tested set already exists.
+[extend]
+useDefault = true
+
+# Every real credential in this repo already lives under paths .gitignore
+# excludes entirely (compose/.env, compose/certs/**, compose/state/**) — see
+# CONTRIBUTING.md's "no secrets or internal infra details" rule. These
+# allowlist entries exist only to quiet documentation that legitimately
+# *names* a credential file or env var without containing its value.
+[allowlist]
+paths = [
+  '''compose/certs/.*README\.md''',
+]

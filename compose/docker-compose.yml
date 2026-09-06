@@ -1,0 +1,84 @@
+# EFDI-Edge infrastructure bundle.
+#
+# Only the Zenoh router (and, when enabled, its local step-ca) are
+# containerized. The control plane (admin-control, presence, supervisor,
+# cert-renewer) runs as native Python processes via ../start.sh; there is
+# no zenoh-admin WebUI here — this pod is configured and restarted remotely
+# by the central zenoh-gateway/SCOUT, over the same Zenoh control-plane
+# topics and the admin-control HTTP agent below.
+#
+# network_mode: host so each service binds the pod's mesh IP directly. No
+# netns sidecar, no NAT gymnastics — same convention as the parent EFDI repo.
+#
+# Values come from .env (copied from .env.example). Images are pinned by
+# digest. zenoh-router uses an ALREADY-PUBLISHED image — no local build context.
+
+services:
+  step-ca:
+    profiles: ["managed-ca"]
+    image: smallstep/step-ca:0.30.2@sha256:a2b17872915c193259b75a5474c398326f41bd199f0842093e52cf4182bc8270
+    container_name: efdi-edge-step-ca
+    network_mode: host
+    restart: unless-stopped
+    command: ["/usr/local/bin/step-ca", "--password-file", "/home/step/secrets/password", "/home/step/config/ca.json"]
+    volumes:
+      - ${POD_STATE_DIR:?set POD_STATE_DIR in .env}/pki/step-ca:/home/step
+    healthcheck:
+      test: ["CMD", "step", "ca", "health", "--ca-url", "https://localhost:${EFDI_STEP_CA_PORT:-9000}", "--root", "/home/step/certs/root_ca.crt"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  zenoh-router:
+    # Upstream eclipse/zenoh, pinned by content digest.
+    image: eclipse/zenoh:1.9.0@sha256:157965d71e0bfd0a044d76a985ff0e5c306ad3968929168fb9678cd2a7fec23f
+    container_name: efdi-edge-zenoh-router
+    network_mode: host
+    restart: unless-stopped
+    # Docker's own default (1024 soft) can be silently exhausted by enough
+    # connect/reconnect churn against the upstream fabric router. Raised as
+    # a precaution — see the parent EFDI repo's own docker-compose.yml for
+    # the live incident this was found from.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    environment:
+      - RUST_LOG=${ZENOH_LOG:-info}
+    volumes:
+      # Rendered from examples/zenoh-router.json5.tmpl (or scripts/pki/*) by first-boot.sh.
+      - ${POD_STATE_DIR:?set in .env}/zenoh/config.json5:/etc/zenoh/config.json5:ro
+      - ${POD_STATE_DIR}/zenoh/tls:/etc/zenoh/tls:ro
+      - ${POD_STATE_DIR}/zenoh/rocksdb:/var/lib/zenoh/rocksdb
+    command: ["-c", "/etc/zenoh/config.json5"]
+    healthcheck:
+      # The previous `true`-style probe reported healthy even when zenohd
+      # had crashed or failed to bind. Probe the loopback client port that
+      # the native control-plane processes actually use.
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 ${ZENOH_LOCAL_TCP_PORT:-7448}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  zenoh-router-test:
+    # Isolated test router for local pub/sub testing — same image, same certs
+    # as zenoh-router, but different ports and NO connect.endpoints (never
+    # dials the fabric). Not started by default —
+    # `docker compose --profile test up -d zenoh-router-test`.
+    image: eclipse/zenoh:1.9.0@sha256:157965d71e0bfd0a044d76a985ff0e5c306ad3968929168fb9678cd2a7fec23f
+    container_name: efdi-edge-zenoh-router-test
+    network_mode: host
+    restart: "no"
+    profiles:
+      - test
+    environment:
+      - RUST_LOG=${ZENOH_LOG:-info}
+    volumes:
+      - ${POD_STATE_DIR:?set in .env}/zenoh-test/config.json5:/etc/zenoh/config.json5:ro
+      - ${POD_STATE_DIR}/zenoh/tls:/etc/zenoh/tls:ro
+    command: ["-c", "/etc/zenoh/config.json5"]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 ${ZENOH_TEST_LOCAL_TCP_PORT:-7458}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12

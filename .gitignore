@@ -1,0 +1,40 @@
+# Local agent/editor state. Dot-prefixed names are not ignored by Git unless
+# they are listed explicitly.
+.claude/
+.codex/
+.agents/
+.cursor/
+.gemini/
+.vscode/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+compose/.env
+
+# Keep the certificate layout and instructions reproducible while excluding
+# every credential. Only the README file below may be tracked.
+compose/certs/**
+!compose/certs/
+!compose/certs/README.md
+!compose/certs/efdi/
+!compose/certs/efdi/README.md
+
+compose/state/
+logs/
+.pids/
+
+*.cbor
+__pycache__/
+
+# JetBrains IDE settings — per-developer, not project state
+.idea/
+*.iml
+
+# Stray backup files
+*.bak
+
+# Scratch commit-message drafts — working state, not project content
+commit_msg.txt
+COMMIT_MSG.txt
