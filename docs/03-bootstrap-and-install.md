@@ -91,13 +91,16 @@ Walkthrough:
    and renders `${POD_STATE_DIR}/zenoh/config.json5` from
    `examples/zenoh-router.json5.tmpl` — full mTLS, `connect.endpoints` set
    to what you entered, and the same federation ACL model as the parent
-   EFDI project. **One value in this template is a documented guess, not a
-   verified default:** `INBOUND_NAMESPACE` (the bilateral prefix the
-   fabric is allowed to push data to) defaults to this router's own data
-   root rather than a real inbound-namespace convention, since no live
-   example was available to check it against for a leaf/edge router.
-   Confirm with whoever manages the parent fabric's federation setup
-   whether this router should receive any inbound bilateral data at all.
+   EFDI project. `INBOUND_NAMESPACE` (the bilateral prefix the fabric is
+   allowed to push data to) is read from the parent's signed delegation
+   grant (`${POD_STATE_DIR}/pki/delegation.json`, written by
+   `scripts/pki/enroll-router.sh`) — its `subscribe` scope is the exact
+   key-expression prefix the parent authorized during enrollment, so the
+   namespace is cert-issued, not guessed locally. If the grant carries no
+   single `subscribe` scope, install.sh falls back to this router's own
+   data root and warns; confirm with whoever manages the parent fabric's
+   federation setup whether this router should receive any inbound
+   bilateral data at all.
 7. **Local control agent.** Generates `EFDI_CONTROL_TOKEN` — the token the
    parent gateway's WebUI will use to control this router remotely
    (start/stop/restart, config edits, logs). Give this token to whoever

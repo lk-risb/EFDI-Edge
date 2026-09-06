@@ -331,15 +331,29 @@ install -m 644 "$BUNDLE_DIR/efdi/efdi-ca-root.pem" "${POD_STATE_DIR}/zenoh/tls/c
 
 NAMESPACE_ROOT="${NAMESPACE_PREFIX%%/*}"
 DATA_TOPIC_ROOT="${NAMESPACE_PREFIX}/${PARTNER_NAMESPACE}"
-# UNVERIFIED: no live example of a real bilateral inbound namespace for a
-# leaf/edge router was available to check this against (see
-# docs/03-bootstrap-and-install.md). Defaulting to this router's own data
-# root — narrower than leaving it blank (which would produce an invalid
-# "/**"  key expression) and grants nothing beyond what pod-firstparty
-# already allows. Confirm with whoever manages the parent fabric's
-# federation setup whether this router is expected to receive any inbound
-# bilateral data at all; if not, this default is harmless dead ACL surface.
-INBOUND_NAMESPACE="${DATA_TOPIC_ROOT}"
+# The inbound namespace is authorized by the parent's signed delegation
+# grant (${POD_STATE_DIR}/pki/delegation.json, written by
+# scripts/pki/enroll-router.sh) — its `subscribe` scope is the exact
+# key-expression prefix the parent's cert/CSR exchange bound this router
+# to receive. Cert-issued, not guessed.
+DELEGATION_FILE="${POD_STATE_DIR}/pki/delegation.json"
+INBOUND_NAMESPACE=""
+if [ -f "$DELEGATION_FILE" ]; then
+    INBOUND_NAMESPACE=$(python3 -c '
+import json, sys
+with open(sys.argv[1]) as f:
+    envelope = json.load(f)
+subscribe = envelope.get("payload", {}).get("subscribe", [])
+if len(subscribe) == 1:
+    print(subscribe[0].removesuffix("/**"))
+' "$DELEGATION_FILE" 2>/dev/null) || true
+fi
+if [ -n "$INBOUND_NAMESPACE" ]; then
+    ok "Inbound namespace granted by delegation: ${INBOUND_NAMESPACE}"
+else
+    warn "Delegation grant has no single inbound 'subscribe' scope — defaulting INBOUND_NAMESPACE to this router's own data root (${DATA_TOPIC_ROOT}). Confirm with the parent fabric admin if bidirectional push is expected."
+    INBOUND_NAMESPACE="${DATA_TOPIC_ROOT}"
+fi
 ZENOH_CONNECT_ENDPOINTS="[\"${ZENOH_FABRIC_ENDPOINT}\"]"
 ZENOH_VERIFY_NAME_ON_CONNECT="false"
 ZENOH_PLUGINS_LOADING_ENABLED="true"

@@ -50,7 +50,7 @@ role changes.
 ## Where things live
 
 - `install.sh` — bare-metal Debian bootstrap: OS update, Docker, Python,
-  NetBird/Tailscale, enrollment with a parent zenoh-gateway.
+  NetBird, enrollment with a parent zenoh-gateway.
 - `start.sh`/`stop.sh` — the same interactive service launcher convention
   as the parent EFDI repo, trimmed to infrastructure services only.
 - `compose/control/` — `admin_control.py` (the remote control agent),
