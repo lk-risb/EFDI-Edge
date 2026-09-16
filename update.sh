@@ -12,6 +12,38 @@ PYTHON="$ROOT/compose/venv/bin/python3"
 # shellcheck source=scripts/cleanup_stale_pycache.sh
 . "$ROOT/scripts/cleanup_stale_pycache.sh"
 
+# ── Startup banner (ported from the INTCORE installer's ASCII splash) ──────
+echo -e "${C}"
+cat <<'BANNER'
+=================================================
+ _____ _____ ____ ___   _____ ____   ____ _____
+| ____|  ___|  _ \_ _| | ____|  _ \ / ___| ____|
+|  _| | |_  | | | | |  |  _| | | | | |  _|  _|
+| |___|  _| | |_| | |  | |___| |_| | |_| | |___
+|_____|_|   |____/___| |_____|____/ \____|_____|
+=================================================
+BANNER
+echo -e "${NC}"
+
+banner "Update"
+
+# Numbered, framed step banners (ported from the INTCORE installer's
+# "====\n[N/TOTAL] Title...\n====" style), overriding _spinner.sh's plain
+# underlined section() for this script only.
+TOTAL_STEPS=8
+STEP=0
+SECTION_TITLE=""
+_SECTION_RULE="$(printf '=%.0s' $(seq 1 70))"
+section() {
+    STEP=$((STEP + 1))
+    SECTION_TITLE="$*"
+    echo -e "\n${C}${_SECTION_RULE}${NC}"
+    echo -e "${C}[$STEP/$TOTAL_STEPS] ${SECTION_TITLE}...${NC}"
+    echo -e "${C}${_SECTION_RULE}${NC}\n"
+}
+section_done() { ok "[$STEP/$TOTAL_STEPS] ${SECTION_TITLE} COMPLETED."; }
+
+section "Preflight checks"
 [ -f "$ENV_FILE" ] || fail "compose/.env not found — run ./install.sh first"
 [ -d "$ROOT/.git" ] || fail "Not a git repo — clone via git, not a manual download"
 cd "$ROOT"
@@ -27,13 +59,13 @@ if [ -d "$ZENOH_CONFIG" ]; then
     rmdir "$ZENOH_CONFIG" 2>/dev/null || true
 fi
 [ -f "$ZENOH_CONFIG" ] || fail "Zenoh config not found at $ZENOH_CONFIG — this router was never fully installed. Run ./install.sh first."
-
-banner "Update"
+section_done
 
 # Host OS packages — separate from the pinned container/Python dependency
 # versions below. Only apt-based hosts are supported (Debian is this
 # project's actual target); anything else is skipped with a warning rather
 # than failing the whole update over it.
+section "Host OS packages"
 if command -v apt-get >/dev/null 2>&1; then
     _apt=(apt-get)
     if [ "$(id -u)" -ne 0 ]; then
@@ -64,7 +96,9 @@ if command -v apt-get >/dev/null 2>&1; then
 else
     warn "apt-get not found — skipping host OS package update (unsupported host OS)"
 fi
+section_done
 
+section "Pulling latest changes"
 branch="$(git symbolic-ref --quiet --short HEAD)" \
     || fail "Repo is in detached HEAD state — check out a branch first"
 upstream="$(git rev-parse --abbrev-ref "${branch}@{upstream}" 2>/dev/null)" \
@@ -123,7 +157,9 @@ if [ "$old_head" != "$(git rev-parse HEAD)" ]; then
 else
     dim "No changes — already up to date."
 fi
+section_done
 
+section "Environment backfill"
 chmod 600 "$ENV_FILE"
 backfill() {
     local key="$1" value="$2"
@@ -135,7 +171,9 @@ backfill() {
 }
 backfill EFDI_CONTROL_TOKEN "$(openssl rand -hex 32)"
 backfill ZENOH_ADMIN_SECRET_KEY "$(openssl rand -hex 32)"
+section_done
 
+section "Docker storage preflight"
 min_free_mb="${EFDI_UPDATE_MIN_FREE_MB:-2048}"
 [[ "$min_free_mb" =~ ^[0-9]+$ ]] || fail "EFDI_UPDATE_MIN_FREE_MB must be a non-negative integer"
 docker_root="$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || true)"
@@ -148,7 +186,9 @@ if (( free_mb < min_free_mb )); then
     fail "Only ${free_mb} MiB free on Docker storage; ${min_free_mb} MiB required"
 fi
 ok "Docker storage preflight: ${free_mb} MiB free"
+section_done
 
+section "Python dependencies"
 if [ ! -x "$PYTHON" ]; then
     python3 -m venv "$ROOT/compose/venv"
 fi
@@ -156,7 +196,9 @@ run_spin "Synchronizing Python dependencies" "Python dependencies synchronized" 
     "$PYTHON" -m pip install --disable-pip-version-check \
         -r "$ROOT/compose/requirements.txt" \
     || fail "Python dependency installation failed"
+section_done
 
+section "Infrastructure restart"
 # No local image to rebuild — zenoh-router is an already-published,
 # digest-pinned upstream image, unlike the parent EFDI repo's own
 # locally-built zenoh-admin. `up -d` alone picks up a docker-compose.yml
@@ -170,16 +212,16 @@ info "Restarting control-plane processes from the saved selection..."
 "$ROOT/stop.sh" native
 EFDI_NONINTERACTIVE=1 "$ROOT/start.sh" --restore
 ok "Native runtime restored"
+section_done
 
-printf '\n'
+section "Health check"
 if ! EFDI_NONINTERACTIVE=1 bash "$ROOT/health.sh"; then
     fail "Health check failed after update — see output above"
 fi
+section_done
 
-printf '\n'
-printf '  %b┌────────────────────────────────────────────────┐%b\n' "$G" "$NC"
-printf '  %b│%b  %bUpdate complete%b                              %b│%b\n' \
-    "$G" "$NC" "$W" "$NC" "$G" "$NC"
-printf '  %b└────────────────────────────────────────────────┘%b\n\n' "$G" "$NC"
+echo -e "\n${G}${_SECTION_RULE}${NC}"
+echo -e "${G}${BOLD}  EFDI-EDGE UPDATE COMPLETED SUCCESSFULLY${NC}"
+echo -e "${G}${_SECTION_RULE}${NC}\n"
 printf '  %bLogs:%b  tail -f "%s"\n\n' \
     "$DIM" "$NC" "\${POD_STATE_DIR}/logs/<service>.log"

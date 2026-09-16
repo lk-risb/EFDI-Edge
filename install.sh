@@ -91,16 +91,41 @@ dump_service_logs() {
 # shellcheck source=scripts/_ask.sh
 . "$SCRIPT_DIR/scripts/_ask.sh"
 
-# ── Banner ────────────────────────────────────────────────────────────────────
-echo ""
-echo -e "${BOLD}  EFDI-Edge — Router Installer${NC}"
+# ── Banner (ported from the INTCORE installer's ASCII splash) ──────────────
+echo -e "${CYAN}"
+cat <<'BANNER'
+=================================================
+ _____ _____ ____ ___   _____ ____   ____ _____
+| ____|  ___|  _ \_ _| | ____|  _ \ / ___| ____|
+|  _| | |_  | | | | |  |  _| | | | | |  _|  _|
+| |___|  _| | |_| | |  | |___| |_| | |_| | |___
+|_____|_|   |____/___| |_____|____/ \____|_____|
+=================================================
+BANNER
+echo -e "${NC}"
 echo "  Zenoh router + remote control plane. No local WebUI — configured"
 echo "  and restarted remotely by a parent zenoh-gateway/SCOUT instance."
 echo ""
 
+# Numbered, framed step banners (ported from the INTCORE installer's
+# "====\n[N/TOTAL] Title...\n====" style), overriding the plain underlined
+# section() defined above for the rest of this script.
+TOTAL_STEPS=10
+STEP=0
+SECTION_TITLE=""
+_SECTION_RULE="$(printf '=%.0s' $(seq 1 70))"
+section() {
+    STEP=$((STEP + 1))
+    SECTION_TITLE="$*"
+    echo -e "\n${CYAN}${_SECTION_RULE}${NC}"
+    echo -e "${CYAN}[$STEP/$TOTAL_STEPS] ${SECTION_TITLE}...${NC}"
+    echo -e "${CYAN}${_SECTION_RULE}${NC}\n"
+}
+section_done() { ok "[$STEP/$TOTAL_STEPS] ${SECTION_TITLE} COMPLETED."; }
+
 # ── Existing installation ────────────────────────────────────────────────────
 if [ -f "$ENV_FILE" ]; then
-    section "Existing installation"
+    echo -e "\n${CYAN}── Existing installation ──────────────────────────────────────${NC}"
     echo "  [C] Reconfigure (re-run this installer)"
     echo "  [Q] Cancel"
     read -rp "  Action [C/q]: " _EXISTING_ACTION
@@ -129,6 +154,7 @@ if (( REBOOT_NEEDED )); then
     exit 0
 fi
 ok "System up to date."
+section_done
 
 # ── Prerequisites ─────────────────────────────────────────────────────────────
 section "Prerequisites"
@@ -230,6 +256,7 @@ if (( DOCKER_JUST_INSTALLED )); then
     warn "Log out and back in (or reboot), then re-run ./install.sh to continue."
     exit 0
 fi
+section_done
 
 # ── Networking (NetBird mesh) ──────────────────────────────────────────────────
 # This router reaches its parent zenoh-gateway over the same mesh VPN every
@@ -279,6 +306,7 @@ else
         esac
     done
 fi
+section_done
 
 # ── Pod state directory ───────────────────────────────────────────────────────
 section "Router state directory"
@@ -290,6 +318,7 @@ fi
 ask POD_STATE_DIR "POD_STATE_DIR" "${EXISTING_POD_STATE:-$HOME/efdi-edge-state}"
 BUNDLE_DIR="${POD_STATE_DIR}/certs"
 ZENOH_LOCAL_ENDPOINT="tcp/127.0.0.1:7448"
+section_done
 
 # ── Enrollment — this is what makes the central zenoh-gateway able to see
 # ── and control this router ───────────────────────────────────────────────
@@ -315,6 +344,7 @@ EFDI_ENROLLMENT_TOKEN="$EFDI_ENROLLMENT_TOKEN" \
         "$GATEWAY_WEBUI_URL" "$PARTNER_NAMESPACE" "$BUNDLE_DIR/efdi" "${POD_STATE_DIR}/pki" "${POD_STATE_DIR}/zenoh" \
     || err "Enrollment failed — check the WebUI URL and token, then re-run."
 ok "Enrolled as ${PARTNER_NAMESPACE} — certs written to $BUNDLE_DIR/efdi"
+section_done
 
 # ── Stage certs where the zenoh-router CONTAINER can see them, and render
 # ── its config ────────────────────────────────────────────────────────────
@@ -371,6 +401,7 @@ if [ -d "${POD_STATE_DIR}/zenoh/config.json5" ]; then
 fi
 envsubst < "$SCRIPT_DIR/examples/zenoh-router.json5.tmpl" > "${POD_STATE_DIR}/zenoh/config.json5"
 ok "Zenoh config written: ${POD_STATE_DIR}/zenoh/config.json5 (mTLS, connects to ${ZENOH_FABRIC_ENDPOINT})"
+section_done
 
 # ── Local control agent secret ────────────────────────────────────────────────
 section "Local control agent"
@@ -379,6 +410,7 @@ EFDI_CONTROL_TOKEN="${EFDI_CONTROL_TOKEN:-$(openssl rand -hex 32)}"
 ZENOH_ADMIN_SECRET_KEY="$(env_value ZENOH_ADMIN_SECRET_KEY)"
 ZENOH_ADMIN_SECRET_KEY="${ZENOH_ADMIN_SECRET_KEY:-$(openssl rand -hex 32)}"
 ok "Generated admin-control token — the parent zenoh-gateway needs this to control this router remotely."
+section_done
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
@@ -448,6 +480,7 @@ fi
 } > "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 ok "compose/.env written (mode 600)"
+section_done
 
 # ── Python venv ────────────────────────────────────────────────────────────────
 section "Python virtual environment"
@@ -459,6 +492,7 @@ info "Synchronizing Python runtime dependencies…"
 "$VENV/bin/pip" install --quiet --disable-pip-version-check \
     -r "$SCRIPT_DIR/compose/requirements.txt"
 ok "Venv ready from compose/requirements.txt"
+section_done
 
 # ── Infrastructure ────────────────────────────────────────────────────────────
 section "EFDI-Edge infrastructure"
@@ -470,12 +504,12 @@ docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d zenoh-router || {
 
 EFDI_NONINTERACTIVE=1 "$SCRIPT_DIR/start.sh" --restore
 ok "Router and control-plane processes started"
+section_done
 
 # ── Done ──────────────────────────────────────────────────────────────────────
-echo ""
-echo -e "${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}${BOLD}║                  EFDI-Edge router ready                       ║${NC}"
-echo -e "${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
+echo -e "\n${GREEN}${_SECTION_RULE}${NC}"
+echo -e "${GREEN}${BOLD}  EFDI-EDGE ROUTER INSTALLATION COMPLETED SUCCESSFULLY${NC}"
+echo -e "${GREEN}${_SECTION_RULE}${NC}"
 echo ""
 echo "  Start   : ./start.sh"
 echo "  Stop    : ./stop.sh"

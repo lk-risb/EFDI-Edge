@@ -125,16 +125,6 @@ command reaches it.
 
 ## Troubleshooting
 
-- **Enrollment fails with an HTTP error.** Double-check the WebUI URL
-  (it's the gateway's zenoh-admin base URL, e.g. `https://gateway.example`
-  — not the `admin-control` port `18896`, which is a different service on
-  the same box used for ongoing control, not enrollment) and that the
-  token hasn't already been used or expired.
-- **`admin-control` isn't reachable from the parent gateway.** Check
-  `EFDI_CONTROL_BIND` in `compose/.env` — it must be the mesh VPN
-  interface's IP (or `0.0.0.0` if you accept the exposure), not
-  `127.0.0.1`, once the parent needs to reach it over the network.
-- **Zenoh router won't come up healthy.** `docker compose -f
-  compose/docker-compose.yml logs zenoh-router` — most often a missing or
-  malformed `compose/state/zenoh/config.json5` (should have been rendered
-  by the enrollment step).
+See [04-troubleshooting.md](04-troubleshooting.md) for enrollment
+failures, `admin-control` reachability, and other install/operation
+problems.

@@ -140,8 +140,9 @@ curl -fsSL https://raw.githubusercontent.com/lk-risb/EFDI-Edge/main/install.sh |
 5. Write `compose/.env`, start `zenoh-router`, and start the local control
    plane via `start.sh --restore`.
 
-See `docs/03-bootstrap-and-install.md` for the full walkthrough, including
-what to do if a step fails partway through (every step is safe to re-run).
+See `docs/03-bootstrap-and-install.md` for the full walkthrough (every
+step is safe to re-run), and `docs/04-troubleshooting.md` if a step fails
+partway through.
 
 ## Operations
 
