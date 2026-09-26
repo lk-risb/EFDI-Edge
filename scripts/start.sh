@@ -2,7 +2,7 @@
 # start.sh — interactive EFDI-Edge service launcher
 # Usage: ./start.sh [--restore]
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_DIR="$SCRIPT_DIR/compose"
 ENV_FILE="$SCRIPT_DIR/compose/.env"
 VENV="$COMPOSE_DIR/venv"

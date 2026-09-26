@@ -15,7 +15,7 @@ USER="${USER:-$(whoami)}"
 # not a URL that has been verified to resolve.
 REPO_URL="https://github.com/lk-risb/EFDI-Edge.git"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/efdi-edge}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "$PWD")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." 2>/dev/null && pwd || echo "$PWD")"
 ENV_FILE="$SCRIPT_DIR/compose/.env"
 COMPOSE_FILE="$SCRIPT_DIR/compose/docker-compose.yml"
 VENV="$SCRIPT_DIR/compose/venv"
@@ -62,7 +62,7 @@ if [ ! -f "$COMPOSE_FILE" ]; then
     else
         git clone "$REPO_URL" "$INSTALL_DIR"
     fi
-    exec bash "$INSTALL_DIR/install.sh" </dev/tty
+    exec bash "$INSTALL_DIR/scripts/install.sh" </dev/tty
 fi
 
 # Safe here (never earlier): bash is now reading this script from a real file,
@@ -502,7 +502,7 @@ docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d zenoh-router || {
     err "Zenoh router startup failed — see logs above."
 }
 
-EFDI_NONINTERACTIVE=1 "$SCRIPT_DIR/start.sh" --restore
+EFDI_NONINTERACTIVE=1 "$SCRIPT_DIR/scripts/start.sh" --restore
 ok "Router and control-plane processes started"
 section_done
 

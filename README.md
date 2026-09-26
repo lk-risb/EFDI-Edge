@@ -124,7 +124,7 @@ scripts/pki/             Enrollment + certificate renewal scripts.
 ## Deployment
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lk-risb/EFDI-Edge/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lk-risb/EFDI-Edge/main/scripts/install.sh | bash
 ```
 
 `install.sh` will:
@@ -147,10 +147,10 @@ partway through.
 ## Operations
 
 ```bash
-./start.sh              # interactive service launcher
-./start.sh --restore    # non-interactive, restores last selection
-./stop.sh                # stop everything (control-plane processes + zenoh)
-./stop.sh zenoh          # stop just the router
+./scripts/start.sh              # interactive service launcher
+./scripts/start.sh --restore    # non-interactive, restores last selection
+./scripts/stop.sh                # stop everything (control-plane processes + zenoh)
+./scripts/stop.sh zenoh          # stop just the router
 tail -f compose/state/logs/<service>.log
 ```
 

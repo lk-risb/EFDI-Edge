@@ -2,7 +2,7 @@
 # Fast-forward update with automatic recovery.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$ROOT/compose/.env"
 COMPOSE_FILE="$ROOT/compose/docker-compose.yml"
 PYTHON="$ROOT/compose/venv/bin/python3"
@@ -152,7 +152,7 @@ if [ "$old_head" != "$(git rev-parse HEAD)" ]; then
     cleanup_stale_service_state "$old_head" HEAD "$POD_STATE_DIR"
     if ! git diff --quiet "$old_head" HEAD -- update.sh; then
         info "update.sh changed — restarting from the updated version"
-        exec bash "$ROOT/update.sh" "$@"
+        exec bash "$ROOT/scripts/update.sh" "$@"
     fi
 else
     dim "No changes — already up to date."
@@ -209,13 +209,13 @@ docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --remove-orphans 
 ok "Router restarted"
 
 info "Restarting control-plane processes from the saved selection..."
-"$ROOT/stop.sh" native
-EFDI_NONINTERACTIVE=1 "$ROOT/start.sh" --restore
+"$ROOT/scripts/stop.sh" native
+EFDI_NONINTERACTIVE=1 "$ROOT/scripts/start.sh" --restore
 ok "Native runtime restored"
 section_done
 
 section "Health check"
-if ! EFDI_NONINTERACTIVE=1 bash "$ROOT/health.sh"; then
+if ! EFDI_NONINTERACTIVE=1 bash "$ROOT/scripts/health.sh"; then
     fail "Health check failed after update — see output above"
 fi
 section_done

@@ -8,7 +8,7 @@
 #   ./stop.sh <name>    # stop one named service (admin-control, cert-renewer,
 #                       #   presence, supervisor)
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_DIR="$SCRIPT_DIR/compose"
 ENV_FILE="$SCRIPT_DIR/compose/.env"
 MODE="${1:-all}"

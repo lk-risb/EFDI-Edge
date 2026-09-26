@@ -4,7 +4,7 @@
 
 ### Tuščio serverio paruošimas
 
-`./install.sh` atnaujina OS (`apt upgrade`) ir savaime įdiegia git, Python
+`./scripts/install.sh` atnaujina OS (`apt upgrade`) ir savaime įdiegia git, Python
 3.10+ bei Docker Engine + Compose papildinį (iš oficialios Docker
 saugyklos, ne distributyvo paketą `docker.io`), jei jų trūksta — visiškai
 tuščias Debian serveris tinka be jokio išankstinio paruošimo. Debian yra
@@ -60,11 +60,11 @@ gaukite:
 ## Diegyklės paleidimas
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lk-risb/EFDI-Edge/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lk-risb/EFDI-Edge/main/scripts/install.sh | bash
 ```
 
 Pirmas paleidimas nuklonuoja repozitoriją į `~/efdi-edge` (perrašoma su
-`INSTALL_DIR=/path ./install.sh`) ir iš naujo paleidžia jau atsisiųstą
+`INSTALL_DIR=/path ./scripts/install.sh`) ir iš naujo paleidžia jau atsisiųstą
 `install.sh`. Kiekvienas kitas paleidimas — įskaitant pakartotinį po
 klaidos — vyksta jau su tuo pačiu katalogu.
 
@@ -76,7 +76,7 @@ Eiga:
 2. **Būtinos priemonės.** Python, Docker, Compose, openssl. Jei Docker
    ką tik buvo įdiegtas, diegyklė sustoja ir paprašo naujos prisijungimo
    sesijos (grupės narystė `docker` grupei negalioja dabartinei sesijai)
-   — po pakartotinio prisijungimo paleiskite `./install.sh` iš naujo.
+   — po pakartotinio prisijungimo paleiskite `./scripts/install.sh` iš naujo.
 3. **Tinklas.** Prisijunkite prie NetBird arba praleiskite šį žingsnį,
    jei tai vien lokalus bandomasis diegimas (be prisijungimo šis
    routeris nepasieks tikro tėvinio šliuzo).
@@ -121,8 +121,8 @@ metu esamos reikšmės naudojamos kaip numatytosios.
 ## Po diegimo
 
 ```
-./start.sh              # interaktyvus paslaugų paleidiklis
-./start.sh --restore    # neinteraktyvus; atkuria paskutinį pasirinkimą
+./scripts/start.sh              # interaktyvus paslaugų paleidiklis
+./scripts/start.sh --restore    # neinteraktyvus; atkuria paskutinį pasirinkimą
 ```
 
 Šis routeris neturi vietinio WebUI. Norėdami patvirtinti, kad jis

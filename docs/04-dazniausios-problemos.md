@@ -22,7 +22,7 @@ ls $EFDI_CERT_DIR/*.pem
 ```
 
 Jei `compose/.env` buvo įkeltas paprastu `source compose/.env`, kintamieji
-neeksportuojami vaikiniams procesams. Naudokite `./start.sh` (kuris tai
+neeksportuojami vaikiniams procesams. Naudokite `./scripts/start.sh` (kuris tai
 sutvarko), arba:
 
 ```bash
@@ -103,14 +103,14 @@ Niekada neperduokite `--break-system-packages` sistemos `pip`.
 ### Dubliuoti proceso egzemplioriai
 
 **Simptomas:** Veikia dvi tos pačios paslaugos kopijos — dažniausiai dėl
-`./start.sh` paleidimo du kartus, prieš tai nesustabdžius.
+`./scripts/start.sh` paleidimo du kartus, prieš tai nesustabdžius.
 
 **Sprendimas:**
 
 ```bash
-./stop.sh
+./scripts/stop.sh
 rm -f compose/state/.pids/*.pid
-./start.sh
+./scripts/start.sh
 ```
 
 ### Kodo pataisymas neįsigalioja, kol veikiantis procesas neperkraunamas

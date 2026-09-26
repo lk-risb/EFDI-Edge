@@ -43,8 +43,8 @@ from urllib.parse import quote, unquote, urlparse
 ROOT = Path(__file__).resolve().parents[2]
 STATE_DIR = Path(os.environ.get("POD_STATE_DIR", str(ROOT / "compose" / "state")))
 ENV_FILE = Path(os.environ.get("EFDI_ENV_FILE", str(ROOT / "compose" / ".env")))
-START_SCRIPT = ROOT / "start.sh"
-STOP_SCRIPT = ROOT / "stop.sh"
+START_SCRIPT = ROOT / "scripts" / "start.sh"
+STOP_SCRIPT = ROOT / "scripts" / "stop.sh"
 CONTROL_HOST = os.environ.get("EFDI_CONTROL_BIND", "127.0.0.1")
 CONTROL_PORT = int(os.environ.get("EFDI_CONTROL_PORT", "18896"))
 

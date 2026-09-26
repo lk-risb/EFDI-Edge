@@ -22,7 +22,7 @@ ls $EFDI_CERT_DIR/*.pem
 ```
 
 If `compose/.env` was loaded with a bare `source compose/.env`, variables
-are not exported to child processes. Use `./start.sh` (which handles
+are not exported to child processes. Use `./scripts/start.sh` (which handles
 this), or:
 
 ```bash
@@ -100,14 +100,14 @@ Never pass `--break-system-packages` to the system `pip`.
 ### Duplicate process instances
 
 **Symptom:** Two copies of the same service running, usually from calling
-`./start.sh` twice without stopping first.
+`./scripts/start.sh` twice without stopping first.
 
 **Fix:**
 
 ```bash
-./stop.sh
+./scripts/stop.sh
 rm -f compose/state/.pids/*.pid
-./start.sh
+./scripts/start.sh
 ```
 
 ### A code fix isn't live until the running process restarts

@@ -5,7 +5,7 @@
 # infra-only equivalent.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$ROOT/compose/.env"
 COMPOSE_FILE="$ROOT/compose/docker-compose.yml"
 PYTHON="$ROOT/compose/venv/bin/python3"
@@ -166,8 +166,8 @@ if [ -t 0 ] && [ -z "${EFDI_NONINTERACTIVE:-}" ]; then
         2)
             echo "  Services: admin-control, presence, supervisor, cert-renewer"
             read -rp "  Service name to restart: " _TS_SERVICE
-            "$ROOT/stop.sh" "$_TS_SERVICE" 2>/dev/null || true
-            if EFDI_NONINTERACTIVE=1 "$ROOT/start.sh" --service "$_TS_SERVICE"; then
+            "$ROOT/scripts/stop.sh" "$_TS_SERVICE" 2>/dev/null || true
+            if EFDI_NONINTERACTIVE=1 "$ROOT/scripts/start.sh" --service "$_TS_SERVICE"; then
                 ok "Restarted $_TS_SERVICE"
             else
                 warn "Could not restart '$_TS_SERVICE' — check the name matches exactly"

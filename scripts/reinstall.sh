@@ -5,7 +5,7 @@
 # locally-built zenoh-admin.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$ROOT/compose/.env"
 COMPOSE_FILE="$ROOT/compose/docker-compose.yml"
 
@@ -31,7 +31,7 @@ fi
 [ -f "$ZENOH_CONFIG" ] || fail "Zenoh config not found at $ZENOH_CONFIG — this router was never fully installed. Run ./install.sh first."
 
 info "Stopping native control-plane processes..."
-"$ROOT/stop.sh" native
+"$ROOT/scripts/stop.sh" native
 ok "Native runtime stopped"
 
 run_spin "Removing router container" "Router container removed" \
@@ -42,7 +42,7 @@ run_spin "Starting Zenoh router" "Zenoh router started" \
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d zenoh-router \
     || { dump_service_logs "$COMPOSE_FILE" "$ENV_FILE"; fail "Router startup failed"; }
 
-EFDI_NONINTERACTIVE=1 "$ROOT/start.sh" --restore
+EFDI_NONINTERACTIVE=1 "$ROOT/scripts/start.sh" --restore
 ok "Native runtime restored"
 
-bash "$ROOT/health.sh"
+bash "$ROOT/scripts/health.sh"

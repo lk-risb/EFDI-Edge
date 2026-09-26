@@ -4,7 +4,7 @@
 
 ### Bare host bootstrap
 
-`./install.sh` updates the OS (`apt upgrade`) and auto-installs git, Python
+`./scripts/install.sh` updates the OS (`apt upgrade`) and auto-installs git, Python
 3.10+, and Docker Engine + the Compose plugin (from Docker's official repo,
 not the distro-bundled `docker.io`) if any are missing — a bare Debian
 install with nothing on it works. Debian is this project's actual target;
@@ -58,11 +58,11 @@ zenoh-gateway/SCOUT instance:
 ## Running the installer
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lk-risb/EFDI-Edge/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lk-risb/EFDI-Edge/main/scripts/install.sh | bash
 ```
 
 The first run clones the repo to `~/efdi-edge` (override with
-`INSTALL_DIR=/path ./install.sh`) and re-execs the checked-out
+`INSTALL_DIR=/path ./scripts/install.sh`) and re-execs the checked-out
 `install.sh`. Every subsequent run — including a re-run after a failure —
 operates on that checkout directly.
 
@@ -74,7 +74,7 @@ Walkthrough:
 2. **Prerequisites.** Python, Docker, Compose, openssl. If Docker was just
    installed, the installer stops and asks for a fresh login session
    (group membership for `docker` doesn't apply to the current one) —
-   re-run `./install.sh` after logging back in.
+   re-run `./scripts/install.sh` after logging back in.
 3. **Networking.** Connect to NetBird, or skip for a fully local test setup
    (this router won't reach a real parent gateway until connected).
 4. **Router state directory.** Where Zenoh's config, TLS material, and
@@ -114,8 +114,8 @@ second pass.
 ## After install
 
 ```
-./start.sh              # interactive service launcher
-./start.sh --restore    # non-interactive; restores what was last selected
+./scripts/start.sh              # interactive service launcher
+./scripts/start.sh --restore    # non-interactive; restores what was last selected
 ```
 
 This router has no local WebUI. To confirm it's actually reachable and
