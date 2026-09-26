@@ -53,10 +53,10 @@ def _bump(key: str, byte_field: str, frame_field: str, nbytes: int) -> None:
         })
         c[byte_field] += max(0, int(nbytes))
         c[frame_field] += 1
-        snapshot = dict(c)
         due = now - _last_flush.get(key, 0.0) >= _FLUSH_INTERVAL_S
         if due:
             _last_flush[key] = now
+            snapshot = dict(c)
     if due:
         _flush(key, snapshot)
 
